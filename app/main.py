@@ -9,6 +9,7 @@ from mistralai import Mistral
 
 from app.parsers.pdf import parse_pdf
 from app.parsers.docx import parse_docx
+from app.storage import save_document
 
 app = FastAPI()
 
@@ -49,10 +50,13 @@ async def upload_file(file: UploadFile = File(...)):
         parser = SUPPORTED_TYPES[file_ext]
         parsed_data = parser(tmp_path)
         
+        file_size = len(content)
+        
         response = {
             "filename": file.filename,
             "file_type": file_ext,
             "content": parsed_data["content"],
+            "file_size": file_size,
             "metadata": {k: v for k, v in parsed_data.items() if k != "content"},
             "temp_path": tmp_path
         }
@@ -135,6 +139,37 @@ async def ocr_refine(
         return JSONResponse(
             status_code=500,
             content={"error": f"OCR error: {str(e)}"}
+        )
+
+@app.post("/save")
+async def save(
+    filename: str = Form(...),
+    file_type: str = Form(...),
+    content: str = Form(...),
+    file_size: int = Form(None),
+    temp_path: str = Form(None)
+):
+    try:
+        doc_id = save_document(
+            filename=filename,
+            original_type=file_type,
+            content=content,
+            file_size=file_size
+        )
+        
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
+        
+        return JSONResponse(content={
+            "status": "success",
+            "doc_id": doc_id,
+            "message": f"Document saved successfully (ID: {doc_id})"
+        })
+    
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Error saving document: {str(e)}"}
         )
 
 @app.post("/cleanup")

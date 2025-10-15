@@ -222,8 +222,59 @@
             ocrStatus.style.color = '#666';
         });
 
-        document.getElementById('saveBtn').addEventListener('click', () => {
-            alert('Save functionality coming in next step');
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            if (!currentData) {
+                alert('No data to save');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            const formData = new FormData();
+            formData.append('filename', currentData.filename);
+            formData.append('file_type', currentData.file_type);
+            formData.append('content', previewContent.value);
+            
+            if (currentData.file_size) {
+                formData.append('file_size', currentData.file_size);
+            }
+            
+            if (currentData.temp_path) {
+                formData.append('temp_path', currentData.temp_path);
+            }
+
+            try {
+                const response = await fetch('/save', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(data.message);
+                    
+                    previewSection.style.display = 'none';
+                    currentData = null;
+                    originalContent = null;
+                    isManualEntry = false;
+                    fileInput.value = '';
+                    manualText.value = '';
+                    ocrBtn.style.display = 'none';
+                    revertBtn.style.display = 'none';
+                    ocrStatus.textContent = '';
+                } else {
+                    alert('Error: ' + data.error);
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save to Archive';
+                }
+            } catch (error) {
+                alert('Error saving document');
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save to Archive';
+            }
         });
 
         document.getElementById('cancelBtn').addEventListener('click', async () => {
