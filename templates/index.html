@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Writing Archive - Ingestion</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Writing Archive Ingestion</h1>
+        
+        <div class="upload-section">
+            <h2>Upload File</h2>
+            <div class="upload-area" id="uploadArea">
+                <p>Drag and drop a file here or click to select</p>
+                <input type="file" id="fileInput" accept=".pdf,.docx" hidden>
+            </div>
+            <div id="uploadStatus"></div>
+        </div>
+
+        <div class="text-section">
+            <h2>Or Paste/Type Text</h2>
+            <textarea id="manualText" placeholder="Paste or type your text here..."></textarea>
+            <button id="submitText">Preview Text</button>
+        </div>
+
+        <div class="preview-section" id="previewSection" style="display: none;">
+            <h2>Preview</h2>
+            <div class="metadata" id="metadata"></div>
+            <textarea id="previewContent"></textarea>
+            <div class="actions">
+                <button id="saveBtn">Save to Archive</button>
+                <button id="cancelBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const previewSection = document.getElementById('previewSection');
+        const previewContent = document.getElementById('previewContent');
+        const metadata = document.getElementById('metadata');
+        const manualText = document.getElementById('manualText');
+        const submitText = document.getElementById('submitText');
+
+        let currentData = null;
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        submitText.addEventListener('click', () => {
+            const text = manualText.value.trim();
+            if (!text) {
+                alert('Please enter some text');
+                return;
+            }
+            handleManualText(text);
+        });
+
+        async function handleFile(file) {
+            uploadStatus.textContent = 'Processing...';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentData = data;
+                    showPreview(data);
+                    uploadStatus.textContent = '';
+                } else {
+                    uploadStatus.textContent = 'Error: ' + data.error;
+                }
+            } catch (error) {
+                uploadStatus.textContent = 'Error uploading file';
+            }
+        }
+
+        async function handleManualText(text) {
+            const formData = new FormData();
+            formData.append('content', text);
+
+            try {
+                const response = await fetch('/save-text', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                currentData = data;
+                showPreview(data);
+            } catch (error) {
+                alert('Error processing text');
+            }
+        }
+
+        function showPreview(data) {
+            previewContent.value = data.content;
+            
+            let metaHtml = `<strong>File:</strong> ${data.filename}<br>`;
+            metaHtml += `<strong>Type:</strong> ${data.file_type}<br>`;
+            for (const [key, value] of Object.entries(data.metadata)) {
+                metaHtml += `<strong>${key}:</strong> ${value}<br>`;
+            }
+            metadata.innerHTML = metaHtml;
+            
+            previewSection.style.display = 'block';
+            previewSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            alert('Save functionality coming in next step');
+        });
+
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            previewSection.style.display = 'none';
+            currentData = null;
+            fileInput.value = '';
+            manualText.value = '';
+        });
+    </script>
+</body>
+</html>
