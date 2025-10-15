@@ -8,6 +8,14 @@
     <div class="container">
         <h1>Writing Archive Ingestion</h1>
         
+        {% if not has_api_key %}
+        <div class="api-key-section">
+            <h2>Mistral API Key (Optional)</h2>
+            <p>Enter your API key to enable OCR refinement for better text extraction</p>
+            <input type="password" id="apiKeyInput" placeholder="Enter Mistral API key (optional)">
+        </div>
+        {% endif %}
+        
         <div class="upload-section">
             <h2>Upload File</h2>
             <div class="upload-area" id="uploadArea">
@@ -28,9 +36,12 @@
             <div class="metadata" id="metadata"></div>
             <textarea id="previewContent"></textarea>
             <div class="actions">
+                <button id="ocrBtn" style="display: none;">Refine with Mistral OCR</button>
+                <button id="revertBtn" style="display: none; background: #6c757d;">Revert to Original</button>
                 <button id="saveBtn">Save to Archive</button>
                 <button id="cancelBtn">Cancel</button>
             </div>
+            <div id="ocrStatus"></div>
         </div>
     </div>
 
@@ -43,8 +54,16 @@
         const metadata = document.getElementById('metadata');
         const manualText = document.getElementById('manualText');
         const submitText = document.getElementById('submitText');
+        const ocrBtn = document.getElementById('ocrBtn');
+        const revertBtn = document.getElementById('revertBtn');
+        const ocrStatus = document.getElementById('ocrStatus');
+        const apiKeyInput = document.getElementById('apiKeyInput');
 
         let currentData = null;
+        let originalContent = null;
+        let isManualEntry = false;
+
+        const hasServerApiKey = {{ 'true' if has_api_key else 'false' }};
 
         uploadArea.addEventListener('click', () => fileInput.click());
 
@@ -94,8 +113,12 @@
 
                 if (response.ok) {
                     currentData = data;
+                    originalContent = data.content;
+                    isManualEntry = false;
                     showPreview(data);
                     uploadStatus.textContent = '';
+                    ocrBtn.style.display = 'inline-block';
+                    revertBtn.style.display = 'none';
                 } else {
                     uploadStatus.textContent = 'Error: ' + data.error;
                 }
@@ -116,7 +139,11 @@
 
                 const data = await response.json();
                 currentData = data;
+                originalContent = data.content;
+                isManualEntry = true;
                 showPreview(data);
+                ocrBtn.style.display = 'none';
+                revertBtn.style.display = 'none';
             } catch (error) {
                 alert('Error processing text');
             }
@@ -136,15 +163,88 @@
             previewSection.scrollIntoView({ behavior: 'smooth' });
         }
 
+        ocrBtn.addEventListener('click', async () => {
+            if (!currentData || !currentData.temp_path) {
+                alert('No file to process');
+                return;
+            }
+
+            const apiKey = hasServerApiKey ? null : apiKeyInput?.value?.trim();
+            
+            if (!hasServerApiKey && !apiKey) {
+                alert('Please enter your Mistral API key above');
+                return;
+            }
+
+            ocrBtn.disabled = true;
+            ocrStatus.textContent = 'Processing with Mistral OCR...';
+            ocrStatus.style.color = '#666';
+
+            const formData = new FormData();
+            formData.append('temp_path', currentData.temp_path);
+            formData.append('filename', currentData.filename);
+            if (apiKey) {
+                formData.append('api_key', apiKey);
+            }
+
+            try {
+                const response = await fetch('/ocr-refine', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    previewContent.value = data.content;
+                    ocrStatus.textContent = `OCR complete - processed ${data.page_count} pages`;
+                    ocrStatus.style.color = '#28a745';
+                    ocrBtn.style.display = 'none';
+                    revertBtn.style.display = 'inline-block';
+                } else {
+                    ocrStatus.textContent = 'Error: ' + data.error;
+                    ocrStatus.style.color = '#dc3545';
+                    ocrBtn.disabled = false;
+                }
+            } catch (error) {
+                ocrStatus.textContent = 'Error during OCR processing';
+                ocrStatus.style.color = '#dc3545';
+                ocrBtn.disabled = false;
+            }
+        });
+
+        revertBtn.addEventListener('click', () => {
+            previewContent.value = originalContent;
+            ocrBtn.style.display = 'inline-block';
+            ocrBtn.disabled = false;
+            revertBtn.style.display = 'none';
+            ocrStatus.textContent = 'Reverted to original parsing';
+            ocrStatus.style.color = '#666';
+        });
+
         document.getElementById('saveBtn').addEventListener('click', () => {
             alert('Save functionality coming in next step');
         });
 
-        document.getElementById('cancelBtn').addEventListener('click', () => {
+        document.getElementById('cancelBtn').addEventListener('click', async () => {
+            if (currentData && currentData.temp_path && !isManualEntry) {
+                const formData = new FormData();
+                formData.append('temp_path', currentData.temp_path);
+                await fetch('/cleanup', {
+                    method: 'POST',
+                    body: formData
+                });
+            }
+            
             previewSection.style.display = 'none';
             currentData = null;
+            originalContent = null;
+            isManualEntry = false;
             fileInput.value = '';
             manualText.value = '';
+            ocrBtn.style.display = 'none';
+            revertBtn.style.display = 'none';
+            ocrStatus.textContent = '';
         });
     </script>
 </body>

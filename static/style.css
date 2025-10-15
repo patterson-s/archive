@@ -30,6 +30,29 @@ h2 {
     font-size: 18px;
 }
 
+.api-key-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    border-left: 4px solid #007bff;
+}
+
+.api-key-section p {
+    margin: 10px 0;
+    color: #666;
+    font-size: 14px;
+}
+
+#apiKeyInput {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
 .upload-section {
     margin-bottom: 40px;
 }
@@ -62,6 +85,11 @@ h2 {
     color: #666;
 }
 
+#ocrStatus {
+    margin-top: 10px;
+    font-size: 14px;
+}
+
 .text-section {
     margin-bottom: 40px;
 }
@@ -90,6 +118,11 @@ button {
 
 button:hover {
     background: #0056b3;
+}
+
+button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
 }
 
 .preview-section {
@@ -122,6 +155,7 @@ button:hover {
     margin-top: 15px;
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 #cancelBtn {
@@ -129,5 +163,17 @@ button:hover {
 }
 
 #cancelBtn:hover {
+    background: #5a6268;
+}
+
+#ocrBtn {
+    background: #28a745;
+}
+
+#ocrBtn:hover {
+    background: #218838;
+}
+
+#revertBtn:hover {
     background: #5a6268;
 }
